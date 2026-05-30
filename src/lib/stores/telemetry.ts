@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { listen } from '@tauri-apps/api/event';
+import { ipc } from '$lib/ipc';
 import type { TelemetryPacket } from '$lib/types';
 
 export const packet = writable<TelemetryPacket | null>(null);
@@ -83,11 +83,11 @@ export const rpmPercent = derived(displayPacket, ($p) => {
 let lastPacketTime = 0;
 let connectionTimer: ReturnType<typeof setInterval> | null = null;
 
-export async function startTelemetryListener() {
-  await listen<TelemetryPacket>('telemetry_tick', (event) => {
-    packet.set(event.payload);
-    lastPacketTime = Date.now();
-    isConnected.set(true);
+export async function startTelemetryListener(handlers: { onError?: (msg: string) => void; onBindFailed?: (msg: string) => void } = {}) {
+  await ipc.subscribeTelemetry({
+    onTick: (payload) => { packet.set(payload); lastPacketTime = Date.now(); isConnected.set(true); },
+    onBindFailed: handlers.onBindFailed,
+    onError: handlers.onError,
   });
 
   if (connectionTimer) clearInterval(connectionTimer);

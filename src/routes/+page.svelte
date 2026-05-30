@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { listen } from '@tauri-apps/api/event';
-  import { invoke } from '@tauri-apps/api/core';
+  import { isDesktop } from '$lib/ipc';
   import { startTelemetryListener, replay } from '$lib/stores/telemetry';
   import { loadSettings, settings } from '$lib/stores/sessions';
   import TopBar from '$lib/components/TopBar.svelte';
@@ -32,22 +31,23 @@
 
   onMount(async () => {
     await loadSettings();
-    await startTelemetryListener();
-    await listen('session_error', (e) => addToast(String(e.payload)));
-    await listen('udp_bind_failed', (e) => addToast(String(e.payload)));
-    try {
-      const info = await invoke<{ version: string; is_deb: boolean } | null>('check_for_update');
-      if (info) {
-        pendingUpdate = {
-          version: info.version,
-          install: async () => {
-            updateInstalling = true;
-            await invoke('install_update', { isDeb: info.is_deb });
-          },
-        };
+    await startTelemetryListener({ onError: (m) => addToast(m), onBindFailed: (m) => addToast(m) });
+    if (isDesktop) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const info = await invoke<{ version: string; is_deb: boolean } | null>('check_for_update');
+        if (info) {
+          pendingUpdate = {
+            version: info.version,
+            install: async () => {
+              updateInstalling = true;
+              await invoke('install_update', { isDeb: info.is_deb });
+            },
+          };
+        }
+      } catch {
+        // Offline or update endpoint unreachable — ignore
       }
-    } catch {
-      // Offline or update endpoint unreachable — ignore
     }
   });
 

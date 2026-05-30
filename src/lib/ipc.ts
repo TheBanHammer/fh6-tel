@@ -3,6 +3,8 @@ import type { SessionRow, TelemetryPacket, AppSettings, SessionLap } from '$lib/
 const isTauri =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
+export const isDesktop = isTauri;
+
 export interface TelemetryHandlers {
   onTick: (p: TelemetryPacket) => void;
   onBindFailed?: (msg: string) => void;

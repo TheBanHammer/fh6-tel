@@ -1,50 +1,16 @@
 import { writable } from 'svelte/store';
-import { invoke } from '@tauri-apps/api/core';
+import { ipc } from '$lib/ipc';
 import type { SessionRow, TelemetryPacket, AppSettings, SessionLap } from '$lib/types';
 
 export const sessions = writable<SessionRow[]>([]);
 export const settings = writable<AppSettings | null>(null);
 
-export async function loadSessions() {
-  const rows = await invoke<SessionRow[]>('get_sessions');
-  sessions.set(rows);
-}
-
-export async function loadSessionPackets(sessionId: number): Promise<TelemetryPacket[]> {
-  return invoke<TelemetryPacket[]>('get_session_packets', { sessionId });
-}
-
-export async function loadSessionLaps(sessionId: number): Promise<SessionLap[]> {
-  return invoke<SessionLap[]>('get_session_laps', { sessionId });
-}
-
-export async function deleteSession(sessionId: number) {
-  await invoke('delete_session', { sessionId });
-  await loadSessions();
-}
-
-export async function clearAllSessions() {
-  await invoke('clear_all_sessions');
-  await loadSessions();
-}
-
-export async function renameSession(sessionId: number, name: string | null) {
-  await invoke('rename_session', { sessionId, name });
-  await loadSessions();
-}
-
-export async function setSessionBookmark(sessionId: number, bookmarked: boolean) {
-  await invoke('set_session_bookmark', { sessionId, bookmarked });
-  await loadSessions();
-}
-
-export async function loadSettings(): Promise<AppSettings> {
-  const s = await invoke<AppSettings>('get_settings');
-  settings.set(s);
-  return s;
-}
-
-export async function saveSettings(s: AppSettings) {
-  await invoke('save_settings', { newSettings: s });
-  settings.set(s);
-}
+export async function loadSessions() { sessions.set(await ipc.getSessions()); }
+export async function loadSessionPackets(sessionId: number): Promise<TelemetryPacket[]> { return ipc.getSessionPackets(sessionId); }
+export async function loadSessionLaps(sessionId: number): Promise<SessionLap[]> { return ipc.getSessionLaps(sessionId); }
+export async function deleteSession(sessionId: number) { await ipc.deleteSession(sessionId); await loadSessions(); }
+export async function clearAllSessions() { await ipc.clearAllSessions(); await loadSessions(); }
+export async function renameSession(sessionId: number, name: string | null) { await ipc.renameSession(sessionId, name); await loadSessions(); }
+export async function setSessionBookmark(sessionId: number, bookmarked: boolean) { await ipc.setSessionBookmark(sessionId, bookmarked); await loadSessions(); }
+export async function loadSettings(): Promise<AppSettings> { const s = await ipc.getSettings(); settings.set(s); return s; }
+export async function saveSettings(s: AppSettings) { await ipc.saveSettings(s); settings.set(s); }

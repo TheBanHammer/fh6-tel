@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getVersion } from '@tauri-apps/api/app';
+  import { ipc } from '$lib/ipc';
   import { isConnected, displayPacket } from '$lib/stores/telemetry';
   import { carName } from '$lib/car-name';
   import { CAR_CLASS_LABELS, DRIVETRAIN_LABELS } from '$lib/types';
@@ -20,7 +20,7 @@
 
   let copied = $state(false);
   let version = $state('');
-  getVersion().then(v => { version = v; });
+  ipc.getAppVersion().then(v => { version = v; });
 
   async function copyOrdinal() {
     if (!pkt || !isUnknown) return;
