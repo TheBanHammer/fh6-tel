@@ -4,6 +4,8 @@ pub mod commands;
 pub mod db;
 pub mod event;
 pub mod parser;
+#[cfg(feature = "server")]
+pub mod server;
 pub mod session;
 pub mod settings;
 pub mod udp;
