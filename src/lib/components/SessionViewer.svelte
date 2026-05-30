@@ -1,12 +1,10 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import { loadSessionPackets, loadSessionLaps, renameSession, setSessionBookmark, settings } from '$lib/stores/sessions';
   import { startReplay } from '$lib/stores/telemetry';
   import { carName } from '$lib/car-name';
   import type { TelemetryPacket, SessionRow, SessionLap } from '$lib/types';
   import MapPanel from './MapPanel.svelte';
-  import uPlot from 'uplot';
-  import 'uplot/dist/uPlot.min.css';
+  import AnalysisTab from './AnalysisTab.svelte';
 
   let {
     session,
@@ -41,9 +39,6 @@
   );
   let displayName = $derived(session.name ?? defaultLabel);
 
-  let chartHost = $state<HTMLDivElement | null>(null);
-  let plots: uPlot[] = [];
-
   $effect(() => {
     loadSessionPackets(session.id).then((p) => {
       packets = p;
@@ -52,172 +47,12 @@
     loadSessionLaps(session.id).then((l) => (laps = l));
   });
 
-  function destroyPlots() {
-    for (const p of plots) p.destroy();
-    plots = [];
-  }
-
-  // Indices where the lap counter advances → vertical markers on every chart.
-  function lapBoundaries(pkts: TelemetryPacket[]) {
-    const marks: { t: number; label: string }[] = [];
-    for (let i = 1; i < pkts.length; i++) {
-      if (pkts[i].lapNumber !== pkts[i - 1].lapNumber) {
-        marks.push({ t: i / 60, label: `L${pkts[i].lapNumber + 1}` });
-      }
-    }
-    return marks;
-  }
-
-  function lapLinePlugin(marks: { t: number; label: string }[]): uPlot.Plugin {
-    return {
-      hooks: {
-        draw: (u) => {
-          const { ctx } = u;
-          const top = u.bbox.top;
-          const bot = u.bbox.top + u.bbox.height;
-          ctx.save();
-          ctx.strokeStyle = 'rgba(148,163,184,0.45)';
-          ctx.fillStyle = 'rgba(148,163,184,0.85)';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([4, 4]);
-          ctx.font = '10px system-ui, sans-serif';
-          for (const m of marks) {
-            const x = Math.round(u.valToPos(m.t, 'x', true));
-            if (x < u.bbox.left || x > u.bbox.left + u.bbox.width) continue;
-            ctx.beginPath();
-            ctx.moveTo(x, top);
-            ctx.lineTo(x, bot);
-            ctx.stroke();
-            ctx.fillText(m.label, x + 3, top + 11);
-          }
-          ctx.restore();
-        },
-      },
-    };
-  }
-
-  onDestroy(destroyPlots);
-
   function formatClock(seconds: number) {
     if (!isFinite(seconds) || seconds < 0) seconds = 0;
     const m = Math.floor(seconds / 60);
     const s = (seconds % 60).toFixed(1).padStart(4, '0');
     return `${m}:${s}`;
   }
-
-  // ── Analysis charts ──────────────────────────────────────────────────────
-  // Rebuilt whenever the analysis tab is shown with data present.
-  $effect(() => {
-    if (tab !== 'analysis' || loading || packets.length === 0 || !chartHost) return;
-
-    destroyPlots();
-    const host = chartHost;
-    host.innerHTML = '';
-
-    const t = packets.map((_, i) => i / 60);
-    const marks = lapBoundaries(packets);
-    const speedFactor = useMph ? 2.23694 : 3.6;
-    const speedLabel = useMph ? 'Speed (mph)' : 'Speed (kph)';
-
-    const groups: {
-      title: string;
-      series: { label: string; stroke: string; data: number[] }[];
-    }[] = [
-      {
-        title: 'Driver Inputs',
-        series: [
-          {
-            label: 'Throttle %',
-            stroke: '#22c55e',
-            data: packets.map((p) => (p.throttle / 255) * 100),
-          },
-          {
-            label: 'Brake %',
-            stroke: '#ef4444',
-            data: packets.map((p) => (p.brake / 255) * 100),
-          },
-          {
-            label: 'Clutch %',
-            stroke: '#f59e0b',
-            data: packets.map((p) => (p.clutch / 255) * 100),
-          },
-        ],
-      },
-      {
-        title: 'Speed & Engine',
-        series: [
-          {
-            label: speedLabel,
-            stroke: '#3b82f6',
-            data: packets.map((p) => p.speedMs * speedFactor),
-          },
-          {
-            label: 'RPM %',
-            stroke: '#a855f7',
-            data: packets.map((p) =>
-              p.engineMaxRpm > 0 ? (p.currentEngineRpm / p.engineMaxRpm) * 100 : 0
-            ),
-          },
-        ],
-      },
-      {
-        title: 'G-Forces',
-        series: [
-          {
-            label: 'Lateral g',
-            stroke: '#06b6d4',
-            data: packets.map((p) => p.accelX / 9.80665),
-          },
-          {
-            label: 'Longitudinal g',
-            stroke: '#eab308',
-            data: packets.map((p) => p.accelZ / 9.80665),
-          },
-        ],
-      },
-      {
-        title: 'Tire Temps (°C)',
-        series: [
-          { label: 'FL', stroke: '#60a5fa', data: packets.map((p) => p.tireTempFl) },
-          { label: 'FR', stroke: '#f87171', data: packets.map((p) => p.tireTempFr) },
-          { label: 'RL', stroke: '#34d399', data: packets.map((p) => p.tireTempRl) },
-          { label: 'RR', stroke: '#fbbf24', data: packets.map((p) => p.tireTempRr) },
-        ],
-      },
-    ];
-
-    for (const g of groups) {
-      const wrap = document.createElement('div');
-      wrap.className = 'chart-block';
-      const h = document.createElement('div');
-      h.className = 'chart-title';
-      h.textContent = g.title;
-      wrap.appendChild(h);
-      const mount = document.createElement('div');
-      wrap.appendChild(mount);
-      host.appendChild(wrap);
-
-      const opts: uPlot.Options = {
-        width: host.clientWidth || 700,
-        height: 180,
-        legend: { show: true },
-        cursor: { sync: { key: 'replay-analysis' } },
-        plugins: [lapLinePlugin(marks)],
-        scales: { x: { time: false } },
-        series: [
-          { label: 'Time (s)' },
-          ...g.series.map((s) => ({ label: s.label, stroke: s.stroke, width: 1.25 })),
-        ],
-        axes: [
-          { stroke: '#6b7280', grid: { stroke: '#1f2937' } },
-          { stroke: '#6b7280', grid: { stroke: '#1f2937' } },
-        ],
-      };
-      plots.push(
-        new uPlot(opts, [t, ...g.series.map((s) => s.data)], mount)
-      );
-    }
-  });
 
   function startEdit() {
     draftName = session.name ?? '';
@@ -294,7 +129,7 @@
       {:else if packets.length === 0}
         <p class="status">No telemetry recorded for this session.</p>
       {:else if tab === 'analysis'}
-        <div class="charts" bind:this={chartHost}></div>
+        <AnalysisTab {packets} {laps} {useMph} />
       {:else if tab === 'map'}
         <div class="map-tab">
           {#if $settings}
@@ -457,32 +292,6 @@
     color: var(--tx-dim);
     text-align: center;
     padding: 3rem;
-  }
-  .charts {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-  :global(.chart-block) {
-    background: var(--bg-card);
-    border: 1px solid var(--bd-dim);
-    border-radius: 8px;
-    padding: 0.6rem 0.75rem 0.75rem;
-  }
-  :global(.chart-title) {
-    color: var(--tx-mid);
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 0.4rem;
-  }
-  :global(.uplot) {
-    background: transparent !important;
-  }
-  /* uPlot's default selection box is near-invisible on dark themes — make the
-     click-drag zoom region clearly visible while dragging. */
-  :global(.uplot .u-select) {
-    background: color-mix(in srgb, var(--ac) 22%, transparent);
-    border: 1px solid var(--ac);
   }
   .map-tab {
     display: flex;
