@@ -1,0 +1,14 @@
+[Unit]
+Description=FH6 Telemetry headless server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Adjust user and binary path to your install.
+User=%i
+ExecStart=/usr/local/bin/fh6-tel-serve --ip 0.0.0.0 --port 8080 --auth-token CHANGE_ME
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
