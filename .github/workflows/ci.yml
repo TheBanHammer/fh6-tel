@@ -27,3 +27,11 @@ jobs:
       - name: Compile backend (release)
         working-directory: src-tauri
         run: cargo build --release
+
+      - name: Build server feature
+        working-directory: src-tauri
+        run: cargo build --no-default-features --features server --bin fh6-tel-serve
+
+      - name: Test server feature
+        working-directory: src-tauri
+        run: cargo test --no-default-features --features server
