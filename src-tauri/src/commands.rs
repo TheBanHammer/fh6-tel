@@ -1,79 +1,66 @@
+use std::sync::Arc;
 use tauri::State;
-use crate::{db, settings, AppState};
+
+use crate::{api, db, parser, settings, AppState};
 
 #[tauri::command]
-pub fn get_sessions(state: State<AppState>) -> Result<Vec<db::SessionRow>, String> {
-    let conn = state.db.lock().unwrap();
-    db::list_sessions(&conn).map_err(|e| e.to_string())
+pub fn get_sessions(state: State<'_, Arc<AppState>>) -> Result<Vec<db::SessionRow>, String> {
+    api::list_sessions(&state)
 }
 
 #[tauri::command]
 pub fn get_session_packets(
-    state: State<AppState>,
+    state: State<'_, Arc<AppState>>,
     session_id: i64,
-) -> Result<Vec<crate::parser::TelemetryPacket>, String> {
-    let conn = state.db.lock().unwrap();
-    let blobs = db::get_session_packets(&conn, session_id).map_err(|e| e.to_string())?;
-    Ok(blobs
-        .iter()
-        .filter_map(|b| crate::parser::parse(b).ok())
-        .collect())
+) -> Result<Vec<parser::TelemetryPacket>, String> {
+    api::session_packets(&state, session_id)
 }
 
 #[tauri::command]
 pub fn get_session_laps(
-    state: State<AppState>,
+    state: State<'_, Arc<AppState>>,
     session_id: i64,
 ) -> Result<Vec<db::LapRow>, String> {
-    let conn = state.db.lock().unwrap();
-    db::get_session_laps(&conn, session_id).map_err(|e| e.to_string())
+    api::session_laps(&state, session_id)
 }
 
 #[tauri::command]
-pub fn delete_session(state: State<AppState>, session_id: i64) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    db::delete_session(&conn, session_id).map_err(|e| e.to_string())
+pub fn delete_session(state: State<'_, Arc<AppState>>, session_id: i64) -> Result<(), String> {
+    api::delete_session(&state, session_id)
 }
 
 #[tauri::command]
-pub fn clear_all_sessions(state: State<AppState>) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    db::clear_all_sessions(&conn).map_err(|e| e.to_string())
+pub fn clear_all_sessions(state: State<'_, Arc<AppState>>) -> Result<(), String> {
+    api::clear_all_sessions(&state)
 }
 
 #[tauri::command]
 pub fn rename_session(
-    state: State<AppState>,
+    state: State<'_, Arc<AppState>>,
     session_id: i64,
     name: Option<String>,
 ) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    db::rename_session(&conn, session_id, name.as_deref()).map_err(|e| e.to_string())
+    api::rename_session(&state, session_id, name)
 }
 
 #[tauri::command]
 pub fn set_session_bookmark(
-    state: State<AppState>,
+    state: State<'_, Arc<AppState>>,
     session_id: i64,
     bookmarked: bool,
 ) -> Result<(), String> {
-    let conn = state.db.lock().unwrap();
-    db::set_session_bookmark(&conn, session_id, bookmarked).map_err(|e| e.to_string())
+    api::set_session_bookmark(&state, session_id, bookmarked)
 }
 
 #[tauri::command]
-pub fn get_settings(state: State<AppState>) -> settings::Settings {
-    state.settings.lock().unwrap().clone()
+pub fn get_settings(state: State<'_, Arc<AppState>>) -> settings::Settings {
+    api::get_settings(&state)
 }
 
 #[tauri::command]
 pub fn save_settings(
-    state: State<AppState>,
+    state: State<'_, Arc<AppState>>,
     new_settings: settings::Settings,
 ) -> Result<(), String> {
-    settings::save(&new_settings).map_err(|e| e.to_string())?;
-    let auto_record = new_settings.auto_record;
-    *state.settings.lock().unwrap() = new_settings;
-    state.session_manager.lock().unwrap().set_auto_record(auto_record);
-    Ok(())
+    api::save_settings(&state, new_settings)
 }

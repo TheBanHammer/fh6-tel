@@ -1,21 +1,23 @@
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter, Manager};
 use tokio::net::UdpSocket;
+use tokio::sync::broadcast;
 
 use crate::{
     db,
+    event::ServerEvent,
     parser,
     session::SessionAction,
     AppState,
 };
 
-pub async fn run(app: AppHandle, port: u16) {
+pub async fn run(state: Arc<AppState>, port: u16, tx: broadcast::Sender<ServerEvent>) {
     let addr = format!("0.0.0.0:{port}");
     let socket = match UdpSocket::bind(&addr).await {
         Ok(s) => s,
         Err(e) => {
             eprintln!("[udp] failed to bind {addr}: {e}");
-            let _ = app.emit("udp_bind_failed", format!("Cannot bind port {port}: {e}"));
+            let _ = tx.send(ServerEvent::BindFailed(format!("Cannot bind port {port}: {e}")));
             return;
         }
     };
@@ -60,7 +62,7 @@ pub async fn run(app: AppHandle, port: u16) {
         };
 
         // Always emit live data regardless of session state
-        let _ = app.emit("telemetry_tick", &pkt);
+        let _ = tx.send(ServerEvent::Tick(pkt.clone()));
 
         // Record whenever a lap is being timed: races/Rivals (race_position > 0)
         // and Time Trial (race_position 0 but the lap clock runs). Free-roam has
@@ -78,13 +80,19 @@ pub async fn run(app: AppHandle, port: u16) {
         }
         let in_event = raw_in_event || close_pending < CLOSE_GRACE;
 
-        let state = app.state::<AppState>();
-        handle_session(&app, &state, &pkt, raw, prev_in_event, in_event);
+        handle_session(&state, &tx, &pkt, raw, prev_in_event, in_event);
         prev_in_event = in_event;
     }
 }
 
-fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPacket, raw: &[u8], prev_in_event: bool, in_event: bool) {
+fn handle_session(
+    state: &AppState,
+    tx: &broadcast::Sender<ServerEvent>,
+    pkt: &parser::TelemetryPacket,
+    raw: &[u8],
+    prev_in_event: bool,
+    in_event: bool,
+) {
     let mut sm = state.session_manager.lock().unwrap();
     let db = state.db.lock().unwrap();
 
@@ -129,7 +137,7 @@ fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPack
                 }
                 Err(e) => {
                     eprintln!("[session] open error: {e}");
-                    let _ = app.emit("session_error", format!("Failed to open session: {e}"));
+                    let _ = tx.send(ServerEvent::SessionError(format!("Failed to open session: {e}")));
                 }
             }
         }
@@ -147,7 +155,7 @@ fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPack
         }
         if let Err(e) = db::insert_packet(&db, session_id, pkt.timestamp_ms, raw) {
             eprintln!("[session] insert error: {e}");
-            let _ = app.emit("session_error", format!("Failed to write telemetry: {e}"));
+            let _ = tx.send(ServerEvent::SessionError(format!("Failed to write telemetry: {e}")));
         }
         // Lazily fill car metadata: the opening packet sometimes arrives before the
         // game has populated car_ordinal. This no-ops once car_ordinal is non-zero.
@@ -185,7 +193,7 @@ fn handle_session(app: &AppHandle, state: &AppState, pkt: &parser::TelemetryPack
                 let best = db::min_lap_time(&db, id).ok().flatten().unwrap_or(-1.0);
                 if let Err(e) = db::close_session(&db, id, now_ms as i64, best) {
                     eprintln!("[session] close error: {e}");
-                    let _ = app.emit("session_error", format!("Failed to close session: {e}"));
+                    let _ = tx.send(ServerEvent::SessionError(format!("Failed to close session: {e}")));
                 } else {
                     println!("[session] closed #{id}");
                 }

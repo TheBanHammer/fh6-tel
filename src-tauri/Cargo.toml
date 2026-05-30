@@ -40,11 +40,11 @@ rust-embed = { version = "8", optional = true }
 futures = { version = "0.3", optional = true }
 
 [build-dependencies]
-tauri-build = { version = "2", features = [], optional = true }
+tauri-build = { version = "2", features = [] }
 
 [features]
 default = ["desktop"]
-desktop = ["dep:tauri", "dep:tauri-plugin-shell", "dep:tauri-plugin-updater", "dep:tauri-plugin-process", "dep:tauri-build"]
+desktop = ["dep:tauri", "dep:tauri-plugin-shell", "dep:tauri-plugin-updater", "dep:tauri-plugin-process"]
 server = ["dep:axum", "dep:tower", "dep:tower-http", "dep:tokio-stream", "dep:clap", "dep:rust-embed", "dep:futures"]
 
 [profile.release]
