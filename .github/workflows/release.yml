@@ -45,9 +45,15 @@ jobs:
               p.version = '${{ inputs.version }}';
               fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(p, null, 2) + '\n');
             "
+            node -e "
+              const fs = require('fs');
+              let s = fs.readFileSync('src-tauri/Cargo.toml', 'utf8');
+              s = s.replace(/^version = \".*\"$/m, 'version = \"${{ inputs.version }}\"');
+              fs.writeFileSync('src-tauri/Cargo.toml', s);
+            "
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add package.json src-tauri/tauri.conf.json
+            git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml
             git commit -m "chore: release v${{ inputs.version }}"
             git push origin HEAD
           else
@@ -99,8 +105,42 @@ jobs:
             unsigned, so on first launch right-click the app → **Open**, or run
             `xattr -dr com.apple.quarantine "/Applications/FH6 Telemetry.app"`.
             **Linux** — download the `.AppImage` (portable), or the `.deb` / `.rpm`.
+            **Headless server** — download `fh6-tel-serve-*` to run the dashboard as a service; see `packaging/`.
 
             Configure Forza Horizon 6 to send UDP telemetry to your PC's IP on port **20440**
             (*Settings → HUD and gameplay → Data out → Format: Car Dash*).
           releaseDraft: true
           prerelease: false
+
+      - name: Build server binary (non-macOS)
+        if: runner.os != 'macOS'
+        shell: bash
+        working-directory: src-tauri
+        run: cargo build --release --no-default-features --features server --bin fh6-tel-serve
+
+      - name: Build server binary (macOS universal)
+        if: runner.os == 'macOS'
+        shell: bash
+        working-directory: src-tauri
+        run: |
+          cargo build --release --no-default-features --features server --bin fh6-tel-serve --target aarch64-apple-darwin
+          cargo build --release --no-default-features --features server --bin fh6-tel-serve --target x86_64-apple-darwin
+          lipo -create \
+            target/aarch64-apple-darwin/release/fh6-tel-serve \
+            target/x86_64-apple-darwin/release/fh6-tel-serve \
+            -output target/release/fh6-tel-serve
+
+      - name: Stage and upload server binary
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="v${{ inputs.version }}"
+          case "${{ runner.os }}" in
+            Windows) SRC="src-tauri/target/release/fh6-tel-serve.exe"; OUT="fh6-tel-serve-windows-x86_64.exe" ;;
+            Linux)   SRC="src-tauri/target/release/fh6-tel-serve";     OUT="fh6-tel-serve-linux-x86_64" ;;
+            macOS)   SRC="src-tauri/target/release/fh6-tel-serve";     OUT="fh6-tel-serve-macos-universal" ;;
+          esac
+          cp "$SRC" "$OUT"
+          gh release upload "$TAG" "$OUT" --clobber --repo "$GITHUB_REPOSITORY"
