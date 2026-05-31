@@ -4,10 +4,14 @@
   import { carName } from '$lib/car-name';
   import { CAR_CLASS_LABELS, DRIVETRAIN_LABELS } from '$lib/types';
 
-  let { useMph = true, onSettings, onSessions }: {
+  let { useMph = true, onSettings, onSessions, tiresVisible = true, mapEnabled = false, onToggleTires, onToggleMap }: {
     useMph: boolean;
     onSettings: () => void;
     onSessions: () => void;
+    tiresVisible?: boolean;
+    mapEnabled?: boolean;
+    onToggleTires?: () => void;
+    onToggleMap?: () => void;
   } = $props();
 
   let pkt = $derived($displayPacket);
@@ -52,6 +56,18 @@
   </div>
 
   <div class="controls">
+    <button
+      class="panel-chip"
+      class:active={tiresVisible}
+      onclick={onToggleTires}
+      title={tiresVisible ? 'Hide tires' : 'Show tires'}
+    >TIRES</button>
+    <button
+      class="panel-chip"
+      class:active={mapEnabled}
+      onclick={onToggleMap}
+      title={mapEnabled ? 'Hide map' : 'Show map'}
+    >MAP</button>
     <button class="icon-btn" onclick={onSessions} title="Sessions">⏱</button>
     <button class="icon-btn" onclick={onSettings} title="Settings">⚙</button>
     {#if version}<span class="version">v{version}</span>{/if}
@@ -115,4 +131,20 @@
     border-radius: 4px;
   }
   .icon-btn:hover { background: var(--bg-elevated); color: var(--tx-mid); }
+  .panel-chip {
+    background: none;
+    border: 1px solid var(--bd-muted);
+    color: var(--tx-xdim);
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .panel-chip.active {
+    border-color: var(--ac);
+    color: var(--ac);
+  }
+  .panel-chip:hover { color: var(--tx-mid); }
 </style>

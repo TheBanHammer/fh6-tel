@@ -88,6 +88,10 @@
     useMph={s?.useMph ?? true}
     onSettings={() => (showSettings = true)}
     onSessions={() => (showSessions = !showSessions)}
+    tiresVisible={s?.tiresVisible ?? true}
+    mapEnabled={s?.mapEnabled ?? false}
+    onToggleTires={async () => { if (s) await saveSettings({ ...s, tiresVisible: !(s.tiresVisible ?? true) }); }}
+    onToggleMap={async () => { if (s) await saveSettings({ ...s, mapEnabled: !s.mapEnabled }); }}
   />
   <CompassBar />
 
