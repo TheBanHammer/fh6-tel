@@ -74,7 +74,7 @@
   }
 
   // ── Resize (width only — map uses aspect-ratio:1 so height follows) ──────
-  let resizing = false;
+  let resizing = $state(false);
   let resizeStartX = 0, originW = 0;
 
   function startResize(e: PointerEvent) {

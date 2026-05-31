@@ -41,6 +41,7 @@
         mapViewMaxZoom: 0,
         mapDefaultZoom: 0,
         mapDefaultCenter: [0, 0] as [number, number],
+        tiresVisible: true,
       };
       draft = { ...mapDefaults, ...$settings };
     }
