@@ -41,7 +41,7 @@
           await existing.setFocus();
           return;
         }
-        new WebviewWindow('map', {
+        await new WebviewWindow('map', {
           url: '/map',
           title: 'Track Map — FH6 Telemetry',
           width: 500,
