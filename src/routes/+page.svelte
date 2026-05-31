@@ -23,6 +23,7 @@
   let nextToastId = 0;
   let pendingUpdate = $state<{ version: string; install: () => Promise<void> } | null>(null);
   let updateInstalling = $state(false);
+  let popoutRef: Window | null = null;
 
   function addToast(message: string) {
     const id = nextToastId++;
@@ -30,8 +31,35 @@
     setTimeout(() => { toasts = toasts.filter(t => t.id !== id); }, 4000);
   }
 
-  function popOutMap() {
-    // implemented in Task 7
+  async function popOutMap() {
+    if (isDesktop) {
+      // Tauri: create a new WebviewWindow; focus if already open
+      try {
+        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const existing = await WebviewWindow.getByLabel('map').catch(() => null);
+        if (existing) {
+          await existing.setFocus();
+          return;
+        }
+        new WebviewWindow('map', {
+          url: '/map',
+          title: 'Track Map — FH6 Telemetry',
+          width: 500,
+          height: 520,
+          resizable: true,
+          decorations: true,
+        });
+      } catch (e) {
+        console.error('Failed to open map window', e);
+      }
+    } else {
+      // Browser: reuse existing pop-out if still open
+      if (popoutRef && !popoutRef.closed) {
+        popoutRef.focus();
+        return;
+      }
+      popoutRef = window.open('/map', 'fh6-map', 'width=500,height=520,resizable=yes');
+    }
   }
 
   onMount(async () => {
