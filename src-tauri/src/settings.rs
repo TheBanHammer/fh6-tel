@@ -45,12 +45,17 @@ pub struct Settings {
     pub map_default_zoom: i32,
     #[serde(default)]
     pub map_default_center: [f64; 2],
+
+    // ── Panel visibility ──────────────────────────────────────────────────────
+    #[serde(default = "Settings::default_tires_visible")]
+    pub tires_visible: bool,
 }
 
 impl Settings {
     fn default_theme() -> String { "dark".to_string() }
     fn default_map_max_zoom() -> i32 { 5 }
     fn default_map_tile_size() -> i32 { 256 }
+    fn default_tires_visible() -> bool { true }
 }
 
 impl Default for Settings {
@@ -76,6 +81,7 @@ impl Default for Settings {
             map_view_max_zoom: 0,
             map_default_zoom: 0,
             map_default_center: [0.0, 0.0],
+            tires_visible: true,
         }
     }
 }
@@ -131,6 +137,14 @@ mod tests {
         assert_eq!(s.map_max_zoom, 5);
         assert_eq!(s.map_tile_size, 256);
         assert_eq!(s.map_cal_a_world, [0.0, 0.0]);
+    }
+
+    #[test]
+    fn legacy_json_without_tires_visible_defaults_to_true() {
+        let legacy = r#"{"port":20440,"useMph":true,"tireTempCold":60.0,
+            "tireTempOptimal":85.0,"tireTempHot":110.0,"autoRecord":true,"theme":"dark"}"#;
+        let s: Settings = serde_json::from_str(legacy).unwrap();
+        assert!(s.tires_visible);
     }
 
     #[test]

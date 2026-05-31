@@ -99,6 +99,7 @@ export interface AppSettings {
   mapViewMaxZoom: number;
   mapDefaultZoom: number;
   mapDefaultCenter: [number, number];
+  tiresVisible: boolean;
 }
 
 export type DrivetrainLabel = 'FWD' | 'RWD' | 'AWD';
