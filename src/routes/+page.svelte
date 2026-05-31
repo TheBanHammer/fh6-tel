@@ -2,12 +2,13 @@
   import { onMount } from 'svelte';
   import { isDesktop } from '$lib/ipc';
   import { startTelemetryListener, replay } from '$lib/stores/telemetry';
-  import { loadSettings, settings } from '$lib/stores/sessions';
+  import { loadSettings, settings, saveSettings } from '$lib/stores/sessions';
   import TopBar from '$lib/components/TopBar.svelte';
   import CompassBar from '$lib/components/CompassBar.svelte';
   import CenterPanel from '$lib/components/CenterPanel.svelte';
   import TireWidget from '$lib/components/TireWidget.svelte';
   import LiveTrackMap from '$lib/components/LiveTrackMap.svelte';
+  import FloatingPanel from '$lib/components/FloatingPanel.svelte';
   import LapBar from '$lib/components/LapBar.svelte';
   import SessionDrawer from '$lib/components/SessionDrawer.svelte';
   import SessionViewer from '$lib/components/SessionViewer.svelte';
@@ -27,6 +28,10 @@
     const id = nextToastId++;
     toasts = [...toasts, { id, message }];
     setTimeout(() => { toasts = toasts.filter(t => t.id !== id); }, 4000);
+  }
+
+  function popOutMap() {
+    // implemented in Task 7
   }
 
   onMount(async () => {
@@ -90,18 +95,44 @@
     <div class="center-area">
       <CenterPanel useMph={s?.useMph ?? true} />
     </div>
-
-    <div class="right-strip">
-      <div class="tire-area">
-        <TireWidget
-          tireTempCold={s?.tireTempCold ?? 60}
-          tireTempOptimal={s?.tireTempOptimal ?? 85}
-          tireTempHot={s?.tireTempHot ?? 110}
-        />
-      </div>
-      <LiveTrackMap />
-    </div>
   </div>
+
+  {#if s?.tiresVisible ?? true}
+    <FloatingPanel
+      id="fh6-tires"
+      title="TIRES"
+      defaultWidth={200}
+      defaultTop={64}
+      onClose={async () => { if (s) await saveSettings({ ...s, tiresVisible: false }); }}
+    >
+      <TireWidget
+        tireTempCold={s?.tireTempCold ?? 60}
+        tireTempOptimal={s?.tireTempOptimal ?? 85}
+        tireTempHot={s?.tireTempHot ?? 110}
+      />
+    </FloatingPanel>
+  {/if}
+
+  {#if s?.mapEnabled}
+    <FloatingPanel
+      id="fh6-map"
+      title="TRACK MAP"
+      defaultWidth={200}
+      defaultBottom={56}
+      resizable
+      onClose={async () => { if (s) await saveSettings({ ...s, mapEnabled: false }); }}
+    >
+      {#snippet actions()}
+        <button
+          class="popout-btn"
+          onclick={popOutMap}
+          title="Pop out map"
+          aria-label="Pop out map"
+        >⤢</button>
+      {/snippet}
+      <LiveTrackMap />
+    </FloatingPanel>
+  {/if}
 
   <div class="lap-bar">
     <LapBar />
@@ -244,19 +275,11 @@
 
   .main {
     flex: 1;
-    display: grid;
-    grid-template-columns: 1fr clamp(130px, 24vw, 210px);
     min-height: 0;
     overflow: hidden;
   }
 
-  .center-area { background: var(--bg-body); overflow: hidden; min-width: 0; }
-  .right-strip {
-    border-left: 1px solid var(--bd-subtle); background: var(--bg-body);
-    overflow: hidden; min-width: 0;
-    display: flex; flex-direction: column;
-  }
-  .tire-area { flex: 1; min-height: 0; }
+  .center-area { background: var(--bg-body); overflow: hidden; width: 100%; height: 100%; }
   .lap-bar { height: clamp(2.5rem, 5.5vh, 4rem); flex-shrink: 0; }
 
   .update-bar {
@@ -288,4 +311,15 @@
     color: #fca5a5; font-size: 0.8rem; padding: 0.5rem 1rem;
     max-width: 420px; text-align: center;
   }
+
+  .popout-btn {
+    background: none;
+    border: none;
+    color: var(--tx-xdim);
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+  }
+  .popout-btn:hover { color: var(--tx-hi); }
 </style>
