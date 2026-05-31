@@ -1,0 +1,35 @@
+# fh6-tel-serve — headless telemetry server + web dashboard.
+#
+#   cp .env.example .env        # then edit (set an auth token for a server)
+#   docker compose up -d --build
+#
+# Data (sessions.db + settings.json) persists in the named volume `fh6-tel-data`
+# at /data/fh6-tel inside the container (XDG_DATA_HOME=/data). It survives
+# `docker compose down` and is only removed with `docker compose down -v`.
+
+services:
+  fh6-tel:
+    build: .
+    image: fh6-tel-serve:latest
+    container_name: fh6-tel
+    restart: unless-stopped
+    # The container always listens on 8080 (HTTP) and 20440 (UDP) internally;
+    # remap the host-side ports via .env. Append extra flags (e.g. an auth
+    # token) through FH6_EXTRA_ARGS.
+    command: --ip 0.0.0.0 --port 8080 ${FH6_EXTRA_ARGS:-}
+    ports:
+      - "${FH6_HTTP_PORT:-8080}:8080"
+      - "${FH6_UDP_PORT:-20440}:20440/udp"
+    volumes:
+      - fh6-tel-data:/data
+    # GET / always returns 200 (the dashboard, or the login page when a token is
+    # set), so it's a reliable liveness probe regardless of auth.
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  fh6-tel-data:

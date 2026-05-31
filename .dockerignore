@@ -1,0 +1,22 @@
+# Build outputs and caches (regenerated inside the image)
+target/
+node_modules/
+build/
+.svelte-kit/
+
+# VCS / editor / local tooling
+.git/
+.github/
+.claude/
+.worktrees/
+docs/
+
+# Prebuilt binaries and artifacts (don't ship into the build context)
+*.exe
+fh6-tel-serve-linux-x86_64
+src-tauri/target/
+src-tauri/.cargo/
+
+# Misc
+*.log
+vite.config.ts.timestamp-*
