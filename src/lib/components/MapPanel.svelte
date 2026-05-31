@@ -97,9 +97,15 @@
       cfg.defaultZoom
     );
     redraw();
+
+    resizeObserver = new ResizeObserver(() => map?.invalidateSize());
+    resizeObserver.observe(host);
   });
 
+  let resizeObserver: ResizeObserver | null = null;
+
   onDestroy(() => {
+    resizeObserver?.disconnect();
     map?.remove();
     map = null;
   });

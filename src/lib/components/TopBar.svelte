@@ -4,12 +4,13 @@
   import { carName } from '$lib/car-name';
   import { CAR_CLASS_LABELS, DRIVETRAIN_LABELS } from '$lib/types';
 
-  let { useMph = true, onSettings, onSessions, tiresVisible = true, mapEnabled = false, onToggleTires, onToggleMap }: {
+  let { useMph = true, onSettings, onSessions, tiresVisible = true, mapEnabled = false, mapPoppedOut = false, onToggleTires, onToggleMap }: {
     useMph: boolean;
     onSettings: () => void;
     onSessions: () => void;
     tiresVisible?: boolean;
     mapEnabled?: boolean;
+    mapPoppedOut?: boolean;
     onToggleTires?: () => void;
     onToggleMap?: () => void;
   } = $props();
@@ -65,9 +66,10 @@
     <button
       class="panel-chip"
       class:active={mapEnabled}
+      class:popped={mapPoppedOut}
       onclick={onToggleMap}
-      title={mapEnabled ? 'Hide map' : 'Show map'}
-    >MAP</button>
+      title={mapPoppedOut ? 'Close pop-out map' : mapEnabled ? 'Hide map' : 'Show map'}
+    >MAP{#if mapPoppedOut} ⤢{/if}</button>
     <button class="icon-btn" onclick={onSessions} title="Sessions">⏱</button>
     <button class="icon-btn" onclick={onSettings} title="Settings">⚙</button>
     {#if version}<span class="version">v{version}</span>{/if}
@@ -145,6 +147,10 @@
   .panel-chip.active {
     border-color: var(--ac);
     color: var(--ac);
+  }
+  .panel-chip.popped {
+    border-color: #f59e0b;
+    color: #f59e0b;
   }
   .panel-chip:hover { color: var(--tx-mid); }
 </style>

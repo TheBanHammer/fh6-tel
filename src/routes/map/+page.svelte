@@ -19,10 +19,21 @@
   let colorByLap = $state(false);
   let fixedTrace = $state(false);
   let bc: BroadcastChannel;
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
+
+  function sendClosed() {
+    if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+    bc?.postMessage({ type: 'popout-closed' });
+  }
 
   onMount(async () => {
     await loadSettings();
     bc = new BroadcastChannel('fh6-tel-map');
+    bc.postMessage({ type: 'popout-opened' });
+    // Heartbeat so main window detects an abrupt close even if onDestroy doesn't fire.
+    heartbeat = setInterval(() => bc?.postMessage({ type: 'popout-heartbeat' }), 1500);
+    // beforeunload fires in both browser and Tauri before the window is destroyed.
+    window.addEventListener('beforeunload', sendClosed, { once: true });
     bc.onmessage = (e: MessageEvent<MapState>) => {
       const d = e.data;
       if (d.type !== 'map-state') return;
@@ -34,7 +45,10 @@
     };
   });
 
-  onDestroy(() => bc?.close());
+  onDestroy(() => {
+    sendClosed();
+    bc?.close();
+  });
 </script>
 
 <svelte:head><title>Track Map — FH6 Telemetry</title></svelte:head>

@@ -9,6 +9,7 @@
     defaultTop,
     defaultBottom,
     resizable = false,
+    hidden = false,
     onClose,
     actions,
     children,
@@ -19,6 +20,7 @@
     defaultTop?: number;
     defaultBottom?: number;
     resizable?: boolean;
+    hidden?: boolean;
     onClose: () => void;
     actions?: Snippet;
     children: Snippet;
@@ -106,7 +108,7 @@
   <div
     class="fp"
     class:dragging
-    style="left:{x}px; top:{y}px; width:{w}px;"
+    style="left:{x}px; top:{y}px; width:{w}px;{hidden ? ' display:none;' : ''}"
     role="dialog"
     aria-label={title}
   >

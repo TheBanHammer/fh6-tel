@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, onDestroy } from 'svelte';
   import { isDesktop } from '$lib/ipc';
   import { startTelemetryListener, replay } from '$lib/stores/telemetry';
   import { loadSettings, settings, saveSettings } from '$lib/stores/sessions';
@@ -24,6 +24,33 @@
   let pendingUpdate = $state<{ version: string; install: () => Promise<void> } | null>(null);
   let updateInstalling = $state(false);
   let popoutRef: Window | null = null;
+  let mapPoppedOut = $state(false);
+  let controlBc: BroadcastChannel | null = null;
+  let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function onPopoutClosed() {
+    mapPoppedOut = false;
+    if (heartbeatTimer) { clearTimeout(heartbeatTimer); heartbeatTimer = null; }
+  }
+
+  function resetHeartbeat() {
+    if (heartbeatTimer) clearTimeout(heartbeatTimer);
+    // 4 s without a heartbeat → pop-out must have died without sending popout-closed.
+    heartbeatTimer = setTimeout(onPopoutClosed, 4000);
+  }
+
+  async function closePopout() {
+    onPopoutClosed();
+    if (isDesktop) {
+      try {
+        const { WebviewWindow } = await import('@tauri-apps/api/webviewWindow');
+        const win = await WebviewWindow.getByLabel('map').catch(console.error);
+        await win?.close();
+      } catch { /* ignore */ }
+    } else {
+      popoutRef?.close();
+    }
+  }
 
   function addToast(message: string) {
     const id = nextToastId++;
@@ -62,9 +89,17 @@
     }
   }
 
+  onDestroy(() => controlBc?.close());
+
   onMount(async () => {
     await loadSettings();
     await startTelemetryListener({ onError: (m) => addToast(m), onBindFailed: (m) => addToast(m) });
+    controlBc = new BroadcastChannel('fh6-tel-map');
+    controlBc.onmessage = (e: MessageEvent<{ type: string }>) => {
+      if (e.data?.type === 'popout-opened') { mapPoppedOut = true; resetHeartbeat(); }
+      if (e.data?.type === 'popout-heartbeat') { resetHeartbeat(); }
+      if (e.data?.type === 'popout-closed') { onPopoutClosed(); }
+    };
     if (isDesktop) {
       try {
         const { invoke } = await import('@tauri-apps/api/core');
@@ -118,8 +153,12 @@
     onSessions={() => (showSessions = !showSessions)}
     tiresVisible={s?.tiresVisible ?? true}
     mapEnabled={s?.mapEnabled ?? false}
+    {mapPoppedOut}
     onToggleTires={async () => { if (s) await saveSettings({ ...s, tiresVisible: !(s.tiresVisible ?? true) }); }}
-    onToggleMap={async () => { if (s) await saveSettings({ ...s, mapEnabled: !s.mapEnabled }); }}
+    onToggleMap={async () => {
+      if (mapPoppedOut) { await closePopout(); return; }
+      if (s) await saveSettings({ ...s, mapEnabled: !s.mapEnabled });
+    }}
   />
   <CompassBar />
 
@@ -152,6 +191,7 @@
       defaultWidth={200}
       defaultBottom={56}
       resizable
+      hidden={mapPoppedOut}
       onClose={async () => { if (s) await saveSettings({ ...s, mapEnabled: false }); }}
     >
       {#snippet actions()}

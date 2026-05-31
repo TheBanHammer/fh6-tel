@@ -41,17 +41,18 @@
       (($packet?.lapNumber ?? 0) > 0)
   );
 
-  // Broadcast current map state to pop-out window at ~3 Hz
   let lastBroadcast = 0;
   $effect(() => {
     void pts; void idx; void inEvent;
     if (!bc) return;
     const now = Date.now();
-    if (now - lastBroadcast < 330) return;
+    if (now - lastBroadcast < 50) return;
     lastBroadcast = now;
+    // $state.snapshot strips Svelte 5 reactive proxies to plain objects,
+    // which BroadcastChannel's structured clone can handle.
     bc.postMessage({
       type: 'map-state',
-      pts,
+      pts: $state.snapshot(pts),
       idx,
       drawLine: inEvent,
       colorByLap: $replay.active,
