@@ -50,7 +50,7 @@
   }
 
   // ── Drag ─────────────────────────────────────────────────────────────────
-  let dragging = false;
+  let dragging = $state(false);
   let dragStartX = 0, dragStartY = 0, originX = 0, originY = 0;
 
   function startDrag(e: PointerEvent) {
