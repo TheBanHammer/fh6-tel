@@ -7,7 +7,7 @@
   let livePoints = $state<TelemetryPacket[]>([]);
   let frame = 0;
   let prevRaceOn = false;
-  let bc: BroadcastChannel | null = null;
+  let bc = $state<BroadcastChannel | null>(null);
 
   // BroadcastChannel for pop-out window sync
   $effect(() => {
