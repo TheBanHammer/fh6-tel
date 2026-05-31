@@ -139,7 +139,17 @@ Point the game at the server instead of localhost: in **Settings → HUD and Gam
 
 ### Docker
 
-A multi-stage [`Dockerfile`](Dockerfile) builds a self-contained image (frontend embedded, ~Debian bullseye runtime):
+Each release publishes an image to **GHCR**. Pull and run it (frontend embedded, Debian bullseye runtime):
+
+```bash
+docker run -d --name fh6-tel \
+  -p 8080:8080 -p 20440:20440/udp \
+  -v fh6-tel-data:/data \
+  --restart unless-stopped \
+  ghcr.io/thebanhammer/fh6-tel-serve:latest --ip 0.0.0.0 --port 8080 --auth-token CHANGE_ME
+```
+
+Or build it yourself from the multi-stage [`Dockerfile`](Dockerfile):
 
 ```bash
 docker build -t fh6-tel-serve .
