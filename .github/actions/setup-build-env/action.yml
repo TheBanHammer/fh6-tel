@@ -42,9 +42,12 @@ runs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        $vsPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+        $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsPath = & $vswhere -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (-not $vsPath) { throw "vswhere could not locate a VS installation with VC tools" }
         $ver = (Get-Content "$vsPath\VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt").Trim()
         $link = "$vsPath\VC\Tools\MSVC\$ver\bin\Hostx64\x64\link.exe"
+        Write-Host "VS: $vsPath"
         Write-Host "Linker: $link (exists=$(Test-Path $link))"
         $escaped = $link.Replace('\', '/')
         New-Item -Force -ItemType Directory src-tauri\.cargo | Out-Null
